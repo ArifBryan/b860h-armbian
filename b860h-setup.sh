@@ -7,6 +7,7 @@
 # Options for --emmc:
 #   --flash-uboot   write uboot/uboot_HG680P.bin to the eMMC if it does not already hold it
 #   --yes           do not ask for the YES confirmation before erasing the eMMC
+#   --allow-stale   install even if this git clone is behind origin (by default it refuses, see install-b860h.sh)
 #
 # Run --emmc from the SD card. It uses scripts/install-aml.sh, a copy of the stock installer,
 # so it does not depend on what a given Armbian image release ships.
@@ -25,8 +26,9 @@ for a in "$@"; do
 		--emmc) DO_EMMC=1 ;;
 		--flash-uboot) FLASH_UBOOT=1 ;;
 		--yes) ASSUME_YES=1 ;;
-		-h|--help) sed -n '2,12p' "$0"; exit 0 ;;
-		*) sed -n '2,12p' "$0"; exit 1 ;;
+		--allow-stale) export B860H_ALLOW_STALE=1 ;;
+		-h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+		*) sed -n '2,13p' "$0"; exit 1 ;;
 	esac
 done
 

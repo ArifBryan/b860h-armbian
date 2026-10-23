@@ -9,6 +9,24 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(dirname "$HERE")
 
 [ "$(id -u)" -eq 0 ] || { echo "Run as root: sudo $0" >&2; exit 1; }
+# The overlay and the dtb come from this clone, so an out-of-date clone silently installs OLD files over
+# newer ones (this happened: --emmc re-installed an old overlay and copied it to the eMMC). Refuse to run
+# when origin has newer commits. Skipped when offline, when this is not a git clone, or with --allow-stale.
+check_repo_fresh() {
+	[ "${B860H_ALLOW_STALE:-0}" = 1 ] && return 0
+	[ -d "$REPO/.git" ] && command -v git >/dev/null || return 0
+	local g="git -c safe.directory=$REPO -C $REPO"
+	timeout 20 $g fetch -q 2>/dev/null || { echo "Note: could not reach the git remote, not checking for a newer version."; return 0; }
+	local behind
+	behind=$($g rev-list --count 'HEAD..@{u}' 2>/dev/null || echo 0)
+	if [ "${behind:-0}" -gt 0 ]; then
+		echo "ERROR: this clone is $behind commit(s) behind origin, so it would install outdated files." >&2
+		echo "       Update it first:  git -C $REPO pull   (or pass --allow-stale to ignore)" >&2
+		exit 3
+	fi
+}
+check_repo_fresh
+
 mountpoint -q /boot || { echo "/boot is not a separate mounted partition; this box layout is not supported." >&2; exit 1; }
 [ -f /boot/extlinux/extlinux.conf ] || { echo "No /boot/extlinux/extlinux.conf found." >&2; exit 1; }
 
