@@ -3,6 +3,18 @@
 
 /* ZTE B860H extras applied on top of the kernel's stock meson-gxl-s905x-p212.dtb */
 / {
+	/*
+	 * Wi-Fi: the P212 reference board releases the SDIO Wi-Fi chip from reset with GPIO 85, the B860H
+	 * uses GPIO 76 (value taken from ophub's meson-gxl-s905x-b860h.dtb, where the chip is then detected).
+	 * With the stock pin the chip never shows up on the SDIO bus.
+	 */
+	fragment@1 {
+		target = <&sdio_pwrseq>;
+		__overlay__ {
+			reset-gpios = <&gpio 76 1>;
+		};
+	};
+
 	fragment@0 {
 		target-path = "/";
 		__overlay__ {
