@@ -14,6 +14,9 @@
        "FDT /b860h.dtb" is added
 
   -SmallUboot  copy the smaller uboot\u-boot.ext (646 KB) instead of the HG680P image.
+  -StockDtb    make extlinux use the image's own stock dtb (/dtb/amlogic/meson-gxl-s905x-p212.dtb)
+               instead of b860h.dtb: a diagnostic switch, no LEDs / power button. Run the script
+               again without it to go back.
 
   After the first boot, run b860h-setup.sh on the box: it rebuilds /boot/b860h.dtb from the dtb of the
   kernel that is really installed and keeps it up to date after upgrades.
@@ -21,7 +24,8 @@
 [CmdletBinding()]
 param(
 	[string]$Drive,
-	[switch]$SmallUboot
+	[switch]$SmallUboot,
+	[switch]$StockDtb
 )
 $ErrorActionPreference = 'Stop'
 
@@ -72,10 +76,12 @@ $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
 $lines = $text -split "`r?`n"
 $out = New-Object System.Collections.Generic.List[string]
 $hasOurs = $false
+$fdtPath = if ($StockDtb) { '/dtb/amlogic/meson-gxl-s905x-p212.dtb' } else { '/b860h.dtb' }
+$fdtRegex = [regex]::Escape($fdtPath)
 # Armbian images differ in style: "INITRD /uInitrd" / "FDT ..." (upper case, no indent) or
 # "  initrd /uInitrd" / "  fdt ..." (lower case, indented). Accept both and copy the style.
 foreach ($l in $lines) {
-	if ($l -match '^\s*fdt\s+/b860h\.dtb\s*$') {
+	if ($l -match "^\s*fdt\s+$fdtRegex\s*$") {
 		# already ours (script run before): keep exactly one
 		if (-not $hasOurs) { $out.Add($l); $hasOurs = $true }
 		continue
@@ -85,12 +91,12 @@ foreach ($l in $lines) {
 	if (-not $hasOurs -and $l -match '^(\s*)(initrd)\s') {
 		$indent = $Matches[1]
 		$key = if ($Matches[2] -cmatch '^[A-Z]+$') { 'FDT' } else { 'fdt' }
-		$out.Add("$indent$key /b860h.dtb"); $hasOurs = $true
+		$out.Add("$indent$key $fdtPath"); $hasOurs = $true
 	}
 }
-if (-not $hasOurs) { throw "no initrd line in $conf; add 'fdt /b860h.dtb' by hand" }
+if (-not $hasOurs) { throw "no initrd line in $conf; add 'fdt $fdtPath' by hand" }
 [IO.File]::WriteAllText($conf, ($out -join $nl), (New-Object Text.UTF8Encoding($false)))
-Write-Host 'extlinux.conf: FDT /b860h.dtb is now the active dtb'
+Write-Host "extlinux.conf: FDT $fdtPath is now the active dtb"
 Write-Host ''
 Select-String -Path $conf -Pattern '^#?\s*fdt\s' | ForEach-Object { '  ' + $_.Line }
 Write-Host ''

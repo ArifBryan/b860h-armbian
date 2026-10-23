@@ -4,6 +4,7 @@ rem   prepare-sd.bat                  finds the card's BOOT drive by itself (jus
 rem   prepare-sd.bat E:               use this drive
 rem   prepare-sd.bat E: -SmallUboot   use the 646 KB u-boot.ext instead of the HG680P image
 rem   prepare-sd.bat -SmallUboot      same, with the drive found automatically
+rem   prepare-sd.bat -StockDtb        diagnostic: boot the image's own stock dtb (no LEDs / power button)
 rem (extlinux.conf is edited by PowerShell on purpose: plain batch would rewrite it with CRLF line
 rem  endings, which U-Boot's extlinux parser may not accept.)
 setlocal
