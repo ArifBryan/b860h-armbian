@@ -34,17 +34,22 @@ Notes:
 
 1. Flash the `.img.xz` to the SD card with **Armbian Imager** or balenaEtcher.
    (Use a good 8 GB+ card, and a card reader. Do not use a USB-SD adapter that hides the raw disk.)
-2. Windows now shows a small **BOOT** (FAT) drive. Open `extlinux\extlinux.conf` on it and make sure
-   exactly one `FDT` line is active, the S905X one:
+2. Windows now shows a small **BOOT** (FAT) drive. Run (or double-click) the helper with its drive letter:
+   ```bat
+   scripts\prepare-sd.bat E:
    ```
-   FDT /dtb/amlogic/meson-gxl-s905x-p212.dtb
-   ```
-   (comment out the others with `#`). This is only for the first boot; the repo's guard takes over later.
-3. On the same **BOOT** drive, copy `uboot/uboot_HG680P.bin` from this repo onto it and **rename the copy to
-   `u-boot.ext`**, replacing the one that is there. It is a plain file copy, no raw disk write. The file
-   name must be exactly `u-boot.ext`: the box's boot script (`s905_autoscript`) loads that name.
-   If the SD card does not boot with it, try `uboot/u-boot.ext` instead (the smaller 646 KB file that the
-   image itself ships as `u-boot.ext`, byte-identical to `u-boot-s905x-s912`).
+   It does three plain file operations on that drive, so the box boots with every feature on the first start:
+   - copies `uboot/uboot_HG680P.bin` as **`u-boot.ext`** (the old one is kept as `u-boot.ext.orig`). The name must
+     be exactly `u-boot.ext`: the box's boot script (`s905_autoscript`) loads that name. If the card does not
+     boot with it, re-run with `scripts\prepare-sd.bat E: -SmallUboot` to use `uboot/u-boot.ext` instead (the
+     smaller 646 KB file that the image itself ships, byte-identical to `u-boot-s905x-s912`);
+   - copies `dtb/b860h.dtb` to the drive root. It is the kernel's stock P212 dtb plus `dts/b860h-extras.dts`
+     (LEDs, power button), built from the official 6.18.44 dtb package, which matches the 6.18.x images;
+   - makes `extlinux\extlinux.conf` use it: active `FDT` lines are commented out and `FDT /b860h.dtb` is added.
+     Line endings of the file are preserved.
+
+   (By hand: copy those two files onto the drive, rename the bootloader to `u-boot.ext`, and put
+   `FDT /b860h.dtb` as the only active `FDT` line in `extlinux\extlinux.conf`.)
 4. Put the SD card in the box, power on. First boot takes a minute or two (partition resize, first-run
    wizard). Watch HDMI or find the IP in your router, and `ssh root@<ip>` (default password `1234`,
    you are forced to change it and create a user).
@@ -52,7 +57,11 @@ Notes:
 If the box ignores the SD card (a unit that still has the stock Android bootloader): power off, hold the
 reset button inside the AV port with a toothpick, then power on.
 
-## 2. Patch the SD system (LEDs, power button, upgrade guard)
+## 2. Patch the SD system (rebuild the dtb for the real kernel, upgrade guard)
+
+With step 1 the LEDs and power button already work. This step installs the apt hook that keeps them
+working: it rebuilds `/boot/b860h.dtb` from the dtb of the kernel that is really installed (instead of the
+prebuilt 6.18.44 one) and re-does it after every upgrade.
 
 On the box:
 
@@ -140,5 +149,7 @@ scripts/     install-b860h.sh   patch a running system
              install-aml.sh     copy of the stock eMMC installer (erases the eMMC)
              check-emmc-uboot.sh, fix-emmc-boot.sh   run before / after it
              write-uboot.sh                          write uboot_HG680P.bin to the eMMC (only if the check fails)
+             prepare-sd.bat / prepare-sd.ps1         Windows: prepare a fresh SD card (u-boot.ext, dtb, extlinux)
+dtb/         b860h.dtb          ready-made dtb: official 6.18.44 stock P212 dtb + dts/b860h-extras.dts
 legacy/      original dts/dtb, GPIO list, old powerStatus.sh
 ```
