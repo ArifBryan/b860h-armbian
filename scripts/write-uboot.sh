@@ -1,8 +1,10 @@
 #!/bin/bash
-# Write the HG680P U-Boot image into the bootloader area of an SD card (or a disk image file).
-# The B860H only boots Armbian with this bootloader. Run it after flashing the Armbian image.
+# Write the HG680P U-Boot image into the bootloader area of the box's eMMC (or a disk image file).
+# Only needed when scripts/check-emmc-uboot.sh reports a mismatch. NOT for SD cards: those only need
+# u-boot.ext (a renamed copy of u-boot-s905x-s912) on the FAT partition, and the image's first partition
+# may start inside the 4 MB this writes.
 #
-#   sudo ./write-uboot.sh /dev/sdX [uboot.bin]      (whole disk, not a partition)
+#   sudo ./write-uboot.sh /dev/mmcblkN [uboot.bin]  (whole eMMC disk, not a partition)
 #   ./write-uboot.sh image.img [uboot.bin]          (test on a plain file)
 #
 # Only bytes 0-441 (boot code) and sectors 1-8191 are written; the partition table

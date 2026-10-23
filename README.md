@@ -7,7 +7,7 @@ with the **LEDs and the power button handled by the kernel** (no userspace scrip
 
 | Problem | Fix here |
 |---|---|
-| Armbian only boots on this box with the **HG680P** U-Boot image in the first 4 MB of the SD card / eMMC | `uboot/uboot_HG680P.bin` plus `scripts/write-uboot.*` and `scripts/check-emmc-uboot.sh` |
+| The box needs the **HG680P** U-Boot image in the first 4 MB of its **eMMC**; the SD card only needs `u-boot.ext` (renamed `u-boot-s905x-s912`) | `uboot/uboot_HG680P.bin`, `scripts/check-emmc-uboot.sh` to verify it and `scripts/write-uboot.sh` to write it |
 | `apt upgrade` re-adds `aml_autoscript` / `s905_autoscript` to the eMMC `/boot`; they chain to `u-boot.ext`, which the eMMC install renamed to `u-boot.emmc`, so the eMMC no longer boots | `scripts/b860h-dtb-guard`, run by apt after every upgrade, removes them again (eMMC only) |
 | The old hand-edited full device tree dump does not work with newer kernels (6.18 official) | `dts/b860h-extras.dts` is a small overlay. The guard applies it to the kernel's own `meson-gxl-s905x-p212.dtb` after every upgrade, so the dtb always matches the kernel. If the build ever fails it falls back to the stock dtb |
 | LEDs / power button were driven by a userspace loop | In the overlay: `gpio-leds` (green = power, red = CPU `activity`) and `gpio-keys-polled` (power button, polled because the GXL GPIO irq controller cannot do both-edge interrupts) |
@@ -40,17 +40,11 @@ Notes:
    FDT /dtb/amlogic/meson-gxl-s905x-p212.dtb
    ```
    (comment out the others with `#`). This is only for the first boot; the repo's guard takes over later.
-3. Write the HG680P bootloader into the SD card's boot area. In an **elevated PowerShell**:
-   ```powershell
-   Get-Disk                       # find the SD card's number (USB/SD bus, right size)
-   .\scripts\write-uboot.ps1 -DiskNumber 3
-   ```
-   If Windows denies the write: `Set-Disk -Number 3 -IsOffline $true`, run the script, then
-   `Set-Disk -Number 3 -IsOffline $false`.
-   On Linux instead: `sudo ./scripts/write-uboot.sh /dev/sdX` (whole disk, not a partition).
-   Both scripts write only boot-code bytes 0-441 and sectors 1-8191; the partition table and the
-   data are untouched. Verified on a disk image file: the shell and PowerShell versions produce
-   byte-identical results.
+3. On the same **BOOT** drive, copy `u-boot-s905x-s912` to `u-boot.ext` (a plain file copy and rename,
+   no raw disk write). The box's built-in bootloader runs `aml_autoscript`, which loads `u-boot.ext`.
+   If `u-boot.ext` is already there, check it is the same file as `u-boot-s905x-s912` and leave it.
+   The HG680P bootloader (`uboot/uboot_HG680P.bin`) is **not** written to the SD card: it lives on the
+   box's eMMC, see section 3 below.
 4. Put the SD card in the box, power on. First boot takes a minute or two (partition resize, first-run
    wizard). Watch HDMI or find the IP in your router, and `ssh root@<ip>` (default password `1234`,
    you are forced to change it and create a user).
@@ -144,6 +138,6 @@ scripts/     install-b860h.sh   patch a running system
              b860h-dtb-guard    apt hook: rebuild dtb, drop SD boot scripts on the eMMC
              install-aml.sh     copy of the stock eMMC installer (erases the eMMC)
              check-emmc-uboot.sh, fix-emmc-boot.sh   run before / after it
-             write-uboot.sh / write-uboot.ps1        put the bootloader on an SD card / disk
+             write-uboot.sh                          write uboot_HG680P.bin to the eMMC (only if the check fails)
 legacy/      original dts/dtb, GPIO list, old powerStatus.sh
 ```
