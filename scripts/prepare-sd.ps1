@@ -72,20 +72,26 @@ $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
 $lines = $text -split "`r?`n"
 $out = New-Object System.Collections.Generic.List[string]
 $hasOurs = $false
+# Armbian images differ in style: "INITRD /uInitrd" / "FDT ..." (upper case, no indent) or
+# "  initrd /uInitrd" / "  fdt ..." (lower case, indented). Accept both and copy the style.
 foreach ($l in $lines) {
-	if ($l -match '^FDT\s+/b860h\.dtb\s*$') {
+	if ($l -match '^\s*fdt\s+/b860h\.dtb\s*$') {
 		# already ours (script run before): keep exactly one
 		if (-not $hasOurs) { $out.Add($l); $hasOurs = $true }
 		continue
 	}
-	if ($l -match '^FDT\s') { $out.Add('#' + $l); continue }
+	if ($l -match '^\s*fdt\s') { $out.Add('#' + $l); continue }
 	$out.Add($l)
-	if (-not $hasOurs -and $l -match '^INITRD\s') { $out.Add('FDT /b860h.dtb'); $hasOurs = $true }
+	if (-not $hasOurs -and $l -match '^(\s*)(initrd)\s') {
+		$indent = $Matches[1]
+		$key = if ($Matches[2] -cmatch '^[A-Z]+$') { 'FDT' } else { 'fdt' }
+		$out.Add("$indent$key /b860h.dtb"); $hasOurs = $true
+	}
 }
-if (-not $hasOurs) { throw "no INITRD line in $conf; add 'FDT /b860h.dtb' by hand" }
+if (-not $hasOurs) { throw "no initrd line in $conf; add 'fdt /b860h.dtb' by hand" }
 [IO.File]::WriteAllText($conf, ($out -join $nl), (New-Object Text.UTF8Encoding($false)))
 Write-Host 'extlinux.conf: FDT /b860h.dtb is now the active dtb'
 Write-Host ''
-Select-String -Path $conf -Pattern '^#?FDT' | ForEach-Object { '  ' + $_.Line }
+Select-String -Path $conf -Pattern '^#?\s*fdt\s' | ForEach-Object { '  ' + $_.Line }
 Write-Host ''
 Write-Host 'Done. Eject the card, put it in the box and power on.'

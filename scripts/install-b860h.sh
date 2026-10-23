@@ -32,8 +32,8 @@ echo "== Building /boot/b860h.dtb"
 /usr/local/sbin/b860h-dtb-guard
 
 echo
-grep -n '^FDT' /boot/extlinux/extlinux.conf
-if [ -f /boot/b860h.dtb ] && grep -q '^FDT /b860h.dtb' /boot/extlinux/extlinux.conf; then
+grep -niE '^[[:space:]]*fdt[[:space:]]' /boot/extlinux/extlinux.conf || true
+if [ -f /boot/b860h.dtb ] && grep -qiE '^[[:space:]]*fdt[[:space:]]+/b860h\.dtb' /boot/extlinux/extlinux.conf; then
 	ls -l /boot/b860h.dtb
 	echo "OK. Reboot to activate the LEDs and power button."
 else

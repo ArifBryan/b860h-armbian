@@ -19,12 +19,15 @@ REL=amlogic/meson-gxl-s905x-p212.dtb
 STOCK=/boot/dtb/$REL
 [ -f "$STOCK" ] || STOCK=$(ls -d /boot/dtb-*/"$REL" 2>/dev/null | sort -V | tail -n 1)
 
+# extlinux.conf style differs between images: "INITRD"/"FDT" upper case without indent, or
+# "  initrd"/"  fdt" lower case and indented. Match both and keep the file's own style.
 set_fdt() {
 	[ -f "$CONF" ] || return 0
-	if grep -q '^FDT ' "$CONF"; then
-		sed -i "s#^FDT .*#FDT $1#" "$CONF"
-	else
-		sed -i "/^INITRD/a FDT $1" "$CONF"
+	if grep -qiE '^[[:space:]]*fdt[[:space:]]' "$CONF"; then
+		sed -i -E "s#^([[:space:]]*)([Ff][Dd][Tt])[[:space:]].*#\1\2 $1#" "$CONF"
+	elif grep -qiE '^[[:space:]]*initrd[[:space:]]' "$CONF"; then
+		if grep -qE '^[[:space:]]*INITRD[[:space:]]' "$CONF"; then key=FDT; else key=fdt; fi
+		sed -i -E "/^[[:space:]]*[Ii][Nn][Ii][Tt][Rr][Dd][[:space:]]/{p;s#^([[:space:]]*)[A-Za-z]+[[:space:]].*#\1$key $1#}" "$CONF"
 	fi
 }
 

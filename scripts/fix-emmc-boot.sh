@@ -59,9 +59,9 @@ fi
 CONF=$MNT/extlinux/extlinux.conf
 if [ -f "$CONF" ]; then
 	sed -i "s#root=[^ ]*#root=UUID=$ROOT_UUID#" "$CONF"
-	FDT=$(sed -n 's/^FDT \(.*\)/\1/p' "$CONF" | head -n 1)
+	FDT=$(sed -n 's/^[[:space:]]*[Ff][Dd][Tt][[:space:]]\+\([^[:space:]]*\).*/\1/p' "$CONF" | head -n 1)
 	[ -n "$FDT" ] && [ ! -f "$MNT$FDT" ] && { echo "MISSING dtb referenced by extlinux: $FDT" >&2; fail=1; }
-	grep -n '^FDT\|root=' "$CONF"
+	grep -niE '^[[:space:]]*fdt[[:space:]]|root=' "$CONF"
 fi
 sync
 
