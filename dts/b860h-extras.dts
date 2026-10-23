@@ -15,6 +15,18 @@
 		};
 	};
 
+	/*
+	 * Bluetooth: the P212 reference tree has a Broadcom BCM43438 Bluetooth chip on UART A. No B860H variant
+	 * has one (RTL8189FTV is Wi-Fi only, MT7668RSN would be a MediaTek part), so the kernel just times out
+	 * on it at every boot ("BCM: Reset failed (-110)"). Switch the node off.
+	 */
+	fragment@2 {
+		target-path = "/soc/bus@c1100000/serial@84c0/bluetooth";
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
 	fragment@0 {
 		target-path = "/";
 		__overlay__ {

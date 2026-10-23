@@ -11,6 +11,8 @@ with the **LEDs and the power button handled by the kernel** (no userspace scrip
 | `apt upgrade` re-adds `aml_autoscript` / `s905_autoscript` to the eMMC `/boot`; they chain to `u-boot.ext`, which the eMMC install renamed to `u-boot.emmc`, so the eMMC no longer boots | `scripts/b860h-dtb-guard`, run by apt after every upgrade, removes them again (eMMC only) |
 | The old hand-edited full device tree dump does not work with newer kernels (6.18 official) | `dts/b860h-extras.dts` is a small overlay. The guard applies it to the kernel's own `meson-gxl-s905x-p212.dtb` after every upgrade, so the dtb always matches the kernel. If the build ever fails it falls back to the stock dtb |
 | LEDs / power button were driven by a userspace loop | In the overlay: `gpio-leds` (green = power, red = CPU `activity`) and `gpio-keys-polled` (power button, polled because the GXL GPIO irq controller cannot do both-edge interrupts) |
+| Built-in Wi-Fi is not detected: the P212 reference tree releases the SDIO Wi-Fi chip from reset with GPIO 85, the B860H uses GPIO 76 | The overlay sets the `sdio-pwrseq` reset pin to GPIO 76 (same value as ophub's and hafidhh's B860H dtbs). The chip is then found and the kernel's Realtek `8189fs` driver binds it |
+| Boot log noise and a ~4 s delay: the kernel tries to bring up a Broadcom Bluetooth chip from the P212 tree that no B860H has | The overlay disables that node |
 
 ## Which image
 
@@ -124,15 +126,44 @@ sudo tar czf /root/boot-$(date +%F).tgz -C /boot .
 ```
 
 To check an upgrade without rebooting: `ls /boot | grep autoscript` (only `emmc_autoscript`),
-`grep -E '^FDT|root=' /boot/extlinux/extlinux.conf` (`FDT /b860h.dtb`, `root=UUID=...`), and
+`grep -i -E '^ *fdt|root=' /boot/extlinux/extlinux.conf` (`fdt /b860h.dtb`, `root=UUID=...`), and
 `ls /lib/modules` (a folder for the new kernel).
+
+## 5. Wi-Fi
+
+The B860H V1/V2 has a Realtek **RTL8189FTV** (SDIO `024C:F179`, 2.4 GHz only, no Bluetooth). With the overlay's
+GPIO 76 reset pin it shows up after the first boot and the community kernel's `8189fs` driver binds it:
+
+```bash
+ls /sys/class/net                      # eth0 lo wlan0 wlan1
+cat /sys/bus/sdio/devices/*/uevent     # DRIVER=rtl8189fs  SDIO_ID=024C:F179
+iw dev wlan0 scan | grep SSID          # needs: ip link set wlan0 up
+```
+
+The minimal image has no NetworkManager. To connect:
+
+```bash
+sudo apt install -y network-manager
+sudo nmtui                             # pick the network and type the password yourself
+```
+
+Keep Ethernet plugged in while you try it for the first time: on older kernels (ophub issue
+[#1199](https://github.com/ophub/amlogic-s9xxx-armbian/issues/1199), 5.15) this driver panicked on connect. On
+6.18.57 a scan and a normal WPA2 connection worked and ran for several minutes without kernel errors.
+
+Other board revisions may carry a different chip (a **MediaTek MT7668RSN** is reported on some units). That one
+has no mainline driver and is not supported here. If `/sys/bus/sdio/devices` shows another ID after the reboot,
+look the ID up before assuming it will work; a USB Wi-Fi adapter is the practical fallback.
 
 ## Notes and gotchas
 
 - **Device names change with the dtb**: with the old custom dtb the eMMC was `mmcblk2`, with the stock-based
   dtb it is `mmcblk1`. The scripts find the eMMC by its `boot0` hardware partition instead of by number.
   Always use UUID/LABEL in your own commands.
-- `mmc2: Failed to initialize a non-removable card` in dmesg is the SDIO Wi-Fi slot, harmless without Wi-Fi.
+- `mmc2: Failed to initialize a non-removable card` in dmesg means the Wi-Fi chip was not released from reset
+  (wrong reset pin); with the overlay's GPIO 76 you get `mmc2: new high speed SDIO card` instead.
+- `request_irq(24) ... mmc_gpio_cd_irqt` in dmesg is the SD slot's card-detect interrupt: the GXL interrupt
+  controller cannot do both-edge irqs. The SD card still works; only hot-plug detection is lost.
 - The red LED trigger can be changed in `dts/b860h-extras.dts` (`linux,default-trigger`): `activity` (CPU load,
   current), `mmc1` (eMMC I/O), `disk-activity`, `heartbeat`. Re-run `scripts/b860h-dtb-guard` as root after
   editing the installed copy in `/usr/local/share/b860h/`.
