@@ -101,13 +101,24 @@ It does, in order, and stops at the first problem (before erasing anything if it
 4. verifies the eMMC boot partition and pins `root=` to its UUID (`scripts/fix-emmc-boot.sh`).
 
 The individual steps are still in `scripts/` if you want to run them by hand.
-Wait for `All done` / `OK: eMMC boot partition looks good`, then:
+Wait for `All done` / `OK: eMMC boot partition looks good`. Then **reboot once with the SD card still in**, and
+let the SD system come all the way back up:
+
+```bash
+sudo reboot
+```
+
+Only after that, power off and remove the SD card:
 
 ```bash
 sudo poweroff
 ```
 
-Remove the SD card and power on. Check:
+Then power on. The extra boot with the SD card matters: if you remove the card right after the copy, the
+eMMC does not start (observed on this box, every time). The SD card carries `aml_autoscript`, the one-time
+script that sets up the bootloader's boot command and reboots (the installer deliberately deletes it from the
+eMMC copy), so the box has to run it from the card once. The first boot from the eMMC afterwards can take a few
+minutes. Check:
 
 ```bash
 findmnt -no SOURCE /          # /dev/mmcblk?p2 on the eMMC

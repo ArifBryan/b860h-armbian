@@ -77,4 +77,8 @@ echo "######## 4/4 Verifying the eMMC boot partition"
 bash "$S/fix-emmc-boot.sh"
 
 echo
-echo "All done. Now: sudo poweroff, remove the SD card, power on."
+echo "All done. Next, in this order:"
+echo "  1. sudo reboot            (keep the SD card IN; wait until the SD system is fully back up)"
+echo "  2. sudo poweroff          then remove the SD card and power on"
+echo "If you remove the SD card right now, the eMMC will not start: the box has to run the SD card's"
+echo "aml_autoscript once first. The first eMMC boot afterwards can take a few minutes."

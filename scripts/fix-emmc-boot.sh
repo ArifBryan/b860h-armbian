@@ -1,5 +1,6 @@
 #!/bin/bash
-# Run on the SD system AFTER scripts/install-aml.sh and BEFORE you remove the SD card.
+# Run on the SD system AFTER scripts/install-aml.sh. Then reboot once with the SD card still in (the box
+# runs the card's aml_autoscript once), and only then power off and remove the card.
 # It checks that the eMMC will boot, and pins root= to the eMMC's UUID (the stock installer
 # writes root=LABEL=ROOT_EMMC, which depends on label lookup in the initramfs).
 #
@@ -69,4 +70,5 @@ if [ "$fail" -ne 0 ]; then
 	echo "NOT READY: fix the items above before removing the SD card." >&2
 	exit 1
 fi
-echo "OK: eMMC boot partition looks good (root=UUID=$ROOT_UUID). Power off, remove the SD card, power on."
+echo "OK: eMMC boot partition looks good (root=UUID=$ROOT_UUID)."
+echo "Now reboot ONCE with the SD card still in and wait until it is back up; only then power off and remove the card."
