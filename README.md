@@ -34,11 +34,14 @@ Notes:
 
 1. Flash the `.img.xz` to the SD card with **Armbian Imager** or balenaEtcher.
    (Use a good 8 GB+ card, and a card reader. Do not use a USB-SD adapter that hides the raw disk.)
-2. Windows now shows a small **BOOT** (FAT) drive. Run (or double-click) the helper with its drive letter:
+2. Windows now shows a small **BOOT** (FAT) drive. Double-click `scripts\prepare-sd.bat` (or run it in a terminal).
    ```bat
-   scripts\prepare-sd.bat E:
+   scripts\prepare-sd.bat          rem finds the card's BOOT drive by itself
+   scripts\prepare-sd.bat E:       rem or name the drive
    ```
-   It does three plain file operations on that drive, so the box boots with every feature on the first start:
+   It looks for the drive holding `extlinux\extlinux.conf` and the kernel `Image` (and asks if there are
+   several). It is safe to run again: it never adds a second `FDT` line. It does three plain file operations on
+   that drive, so the box boots with every feature on the first start:
    - copies `uboot/uboot_HG680P.bin` as **`u-boot.ext`** (the old one is kept as `u-boot.ext.orig`). The name must
      be exactly `u-boot.ext`: the box's boot script (`s905_autoscript`) loads that name. If the card does not
      boot with it, re-run with `scripts\prepare-sd.bat E: -SmallUboot` to use `uboot/u-boot.ext` instead (the
@@ -48,8 +51,8 @@ Notes:
    - makes `extlinux\extlinux.conf` use it: active `FDT` lines are commented out and `FDT /b860h.dtb` is added.
      Line endings of the file are preserved.
 
-   (By hand: copy those two files onto the drive, rename the bootloader to `u-boot.ext`, and put
-   `FDT /b860h.dtb` as the only active `FDT` line in `extlinux\extlinux.conf`.)
+   (Only if the script can't run: copy those two files onto the drive, rename the bootloader to `u-boot.ext`,
+   and put `FDT /b860h.dtb` as the only active `FDT` line in `extlinux\extlinux.conf`.)
 4. Put the SD card in the box, power on. First boot takes a minute or two (partition resize, first-run
    wizard). Watch HDMI or find the IP in your router, and `ssh root@<ip>` (default password `1234`,
    you are forced to change it and create a user).

@@ -20,13 +20,33 @@
 #>
 [CmdletBinding()]
 param(
-	[Parameter(Mandatory)][string]$Drive,
+	[string]$Drive,
 	[switch]$SmallUboot
 )
 $ErrorActionPreference = 'Stop'
 
 $repo = Split-Path -Parent $PSScriptRoot
 if (-not $PSScriptRoot) { $repo = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path) }
+
+# No -Drive given: find the freshly flashed Armbian BOOT drive by itself.
+if (-not $Drive) {
+	$found = @([IO.DriveInfo]::GetDrives() | Where-Object {
+		$_.IsReady -and $_.Name -ne ($env:SystemDrive + '\')
+	} | Where-Object {
+		(Test-Path (Join-Path $_.Name 'extlinux\extlinux.conf')) -and
+		((Test-Path (Join-Path $_.Name 'Image')) -or (Test-Path (Join-Path $_.Name 'uInitrd')))
+	})
+	if ($found.Count -eq 0) { throw 'No Armbian BOOT drive found. Flash the image first and re-insert the card, or pass -Drive E:' }
+	if ($found.Count -eq 1) {
+		$Drive = $found[0].Name
+		Write-Host "Found the Armbian BOOT drive: $Drive ($($found[0].VolumeLabel))"
+	} else {
+		$found | ForEach-Object { Write-Host ("  {0}  {1}" -f $_.Name, $_.VolumeLabel) }
+		$Drive = Read-Host 'More than one Armbian BOOT drive found. Type the drive letter to use'
+	}
+}
+$Drive = $Drive.TrimEnd('\')
+if ($Drive.Length -eq 1) { $Drive += ':' }
 $root = $Drive
 if ($root -match '^[A-Za-z]:$') { $root += '\' }
 $conf = Join-Path $root 'extlinux\extlinux.conf'
@@ -51,13 +71,18 @@ $text = [IO.File]::ReadAllText($conf)
 $nl = if ($text.Contains("`r`n")) { "`r`n" } else { "`n" }
 $lines = $text -split "`r?`n"
 $out = New-Object System.Collections.Generic.List[string]
-$added = $false
+$hasOurs = $false
 foreach ($l in $lines) {
+	if ($l -match '^FDT\s+/b860h\.dtb\s*$') {
+		# already ours (script run before): keep exactly one
+		if (-not $hasOurs) { $out.Add($l); $hasOurs = $true }
+		continue
+	}
 	if ($l -match '^FDT\s') { $out.Add('#' + $l); continue }
 	$out.Add($l)
-	if (-not $added -and $l -match '^INITRD\s') { $out.Add('FDT /b860h.dtb'); $added = $true }
+	if (-not $hasOurs -and $l -match '^INITRD\s') { $out.Add('FDT /b860h.dtb'); $hasOurs = $true }
 }
-if (-not $added) { throw "no INITRD line in $conf; add 'FDT /b860h.dtb' by hand" }
+if (-not $hasOurs) { throw "no INITRD line in $conf; add 'FDT /b860h.dtb' by hand" }
 [IO.File]::WriteAllText($conf, ($out -join $nl), (New-Object Text.UTF8Encoding($false)))
 Write-Host 'extlinux.conf: FDT /b860h.dtb is now the active dtb'
 Write-Host ''
