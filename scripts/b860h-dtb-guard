@@ -1,0 +1,48 @@
+#!/bin/sh
+# b860h-dtb-guard - keeps a ZTE B860H bootable and fully wired after package upgrades.
+# Installed to /usr/local/sbin and run by apt (DPkg::Post-Invoke) after every apt/dpkg run.
+#
+#  1. Builds /boot/b860h.dtb = the kernel's own stock P212 dtb + dts/b860h-extras.dts,
+#     so the dtb always matches the installed kernel (LEDs, power button).
+#     If the build fails, extlinux falls back to the stock dtb, so this can never brick boot.
+#  2. On the eMMC only: removes aml_autoscript / s905_autoscript. Armbian packages re-add them,
+#     and with them present the eMMC boot chain breaks (they chain to u-boot.ext, which the
+#     eMMC install renamed to u-boot.emmc).
+#
+# Always exits 0 so it can never fail an apt run.
+
+mountpoint -q /boot || exit 0
+
+OVERLAY=/usr/local/share/b860h/b860h-extras.dts
+CONF=/boot/extlinux/extlinux.conf
+REL=amlogic/meson-gxl-s905x-p212.dtb
+STOCK=/boot/dtb/$REL
+[ -f "$STOCK" ] || STOCK=$(ls -d /boot/dtb-*/"$REL" 2>/dev/null | sort -V | tail -n 1)
+
+set_fdt() {
+	[ -f "$CONF" ] || return 0
+	if grep -q '^FDT ' "$CONF"; then
+		sed -i "s#^FDT .*#FDT $1#" "$CONF"
+	else
+		sed -i "/^INITRD/a FDT $1" "$CONF"
+	fi
+}
+
+TMP=$(mktemp -d) || exit 0
+trap 'rm -rf "$TMP"' EXIT
+
+if [ -n "$STOCK" ] && [ -f "$STOCK" ] && [ -f "$OVERLAY" ] \
+   && dtc -@ -I dts -O dtb -o "$TMP/extras.dtbo" "$OVERLAY" 2>/dev/null \
+   && fdtoverlay -i "$STOCK" -o "$TMP/b860h.dtb" "$TMP/extras.dtbo" 2>/dev/null \
+   && [ -s "$TMP/b860h.dtb" ]; then
+	cp -f "$TMP/b860h.dtb" /boot/b860h.dtb
+	set_fdt /b860h.dtb
+else
+	echo "b860h-dtb-guard: overlay build failed, using the stock dtb" >&2
+	set_fdt /dtb/$REL
+fi
+
+if [ "$(blkid -s LABEL -o value "$(findmnt -no SOURCE /boot)" 2>/dev/null)" = "BOOT_EMMC" ]; then
+	rm -f /boot/aml_autoscript /boot/s905_autoscript
+fi
+exit 0

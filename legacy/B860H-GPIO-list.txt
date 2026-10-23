@@ -1,0 +1,10 @@
+GPIO :
+ETH1 LED : periphs-banks 14
+ETH2 LED : periphs-banks 15
+RED LED : periphs-banks 73
+GRN LED : periphs-bank 75
+PWR BTN : aobus-banks 2
+
+AVOID :
+periphs-banks 74
+periphs-banks 77

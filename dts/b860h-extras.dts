@@ -1,0 +1,39 @@
+/dts-v1/;
+/plugin/;
+
+/* ZTE B860H extras applied on top of the kernel's stock meson-gxl-s905x-p212.dtb */
+/ {
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			leds {
+				compatible = "gpio-leds";
+
+				led-green {
+					label = "green:power";
+					gpios = <&gpio 75 0>;
+					linux,default-trigger = "default-on";
+				};
+
+				led-red {
+					label = "red:status";
+					gpios = <&gpio 73 0>;
+					linux,default-trigger = "activity";
+					panic-indicator;
+				};
+			};
+
+			/* The GXL GPIO irq controller can't do both-edge irqs, so poll the button */
+			gpio-keys-polled {
+				compatible = "gpio-keys-polled";
+				poll-interval = <100>;
+
+				power-button {
+					label = "Power";
+					linux,code = <116>;
+					gpios = <&gpio_ao 2 1>;
+				};
+			};
+		};
+	};
+};
