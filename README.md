@@ -7,7 +7,7 @@ with the **LEDs and the power button handled by the kernel** (no userspace scrip
 
 | Problem | Fix here |
 |---|---|
-| The box needs the **HG680P** U-Boot to boot Armbian: copied as `u-boot.ext` onto the SD card's BOOT drive, and present in the first 4 MB of the **eMMC** | `uboot/uboot_HG680P.bin` (alternative `uboot/u-boot.ext`), `scripts/check-emmc-uboot.sh` to verify the eMMC and `scripts/write-uboot.sh` to write it |
+| The box needs a raw ARM64 `u-boot.ext` on the SD card's BOOT drive (the 4 MB HG680P image does not work there), and the **HG680P** U-Boot image in the first 4 MB of the **eMMC** | `uboot/u-boot.ext` for the SD card; `uboot/uboot_HG680P.bin` for the eMMC head, with `scripts/check-emmc-uboot.sh` to verify it and `scripts/write-uboot.sh` to write it |
 | `apt upgrade` re-adds `aml_autoscript` / `s905_autoscript` to the eMMC `/boot`; they chain to `u-boot.ext`, which the eMMC install renamed to `u-boot.emmc`, so the eMMC no longer boots | `scripts/b860h-dtb-guard`, run by apt after every upgrade, removes them again (eMMC only) |
 | The old hand-edited full device tree dump does not work with newer kernels (6.18 official) | `dts/b860h-extras.dts` is a small overlay. The guard applies it to the kernel's own `meson-gxl-s905x-p212.dtb` after every upgrade, so the dtb always matches the kernel. If the build ever fails it falls back to the stock dtb |
 | LEDs / power button were driven by a userspace loop | In the overlay: `gpio-leds` (green = power, red = CPU `activity`) and `gpio-keys-polled` (power button, polled because the GXL GPIO irq controller cannot do both-edge interrupts) |
@@ -42,10 +42,12 @@ Notes:
    It looks for the drive holding `extlinux\extlinux.conf` and the kernel `Image` (and asks if there are
    several). It is safe to run again: it never adds a second `FDT` line. It does three plain file operations on
    that drive, so the box boots with every feature on the first start:
-   - copies `uboot/uboot_HG680P.bin` as **`u-boot.ext`** (the old one is kept as `u-boot.ext.orig`). The name must
-     be exactly `u-boot.ext`: the box's boot script (`s905_autoscript`) loads that name. If the card does not
-     boot with it, re-run with `scripts\prepare-sd.bat E: -SmallUboot` to use `uboot/u-boot.ext` instead (the
-     smaller 646 KB file that the image itself ships, byte-identical to `u-boot-s905x-s912`);
+   - copies `uboot/u-boot.ext` (646 KB, byte-identical to the `u-boot-s905x-s912` the image ships) as
+     **`u-boot.ext`**; an existing one is kept as `u-boot.ext.orig`. The name must be exactly `u-boot.ext`: the
+     box's boot script (`s905_autoscript`) loads it and runs `go 0x1000000`, so it must be a raw ARM64 U-Boot
+     like this file. The 4 MB `uboot_HG680P.bin` is an eMMC-head image that starts with zeros: tested as
+     `u-boot.ext` it left the box hanging in the bootloader (steady red LED, blank HDMI, no network), so it is
+     opt-in only (`scripts\prepare-sd.bat E: -Hg680pUboot`);
    - copies `dtb/b860h.dtb` to the drive root. It is the kernel's stock P212 dtb plus `dts/b860h-extras.dts`
      (LEDs, power button), built from the official 6.18.44 dtb package, which matches the 6.18.x images;
    - makes `extlinux\extlinux.conf` use it: active `FDT` lines are commented out and `FDT /b860h.dtb` is added.
@@ -144,8 +146,8 @@ To check an upgrade without rebooting: `ls /boot | grep autoscript` (only `emmc_
 
 ```
 b860h-setup.sh   the one script to run: patch, or patch + install to eMMC (--emmc)
-uboot/       uboot_HG680P.bin (copy to the SD card's BOOT drive as u-boot.ext; also the eMMC bootloader),
-             u-boot.ext (smaller fallback), uboot_B860H.bin (alternative), SHA256SUMS
+uboot/       u-boot.ext (goes on the SD card's BOOT drive as u-boot.ext, and as u-boot.emmc on the eMMC),
+             uboot_HG680P.bin (eMMC-head bootloader image), uboot_B860H.bin (alternative), SHA256SUMS
 dts/         b860h-extras.dts   overlay: LEDs + power button
 scripts/     install-b860h.sh   patch a running system
              b860h-dtb-guard    apt hook: rebuild dtb, drop SD boot scripts on the eMMC

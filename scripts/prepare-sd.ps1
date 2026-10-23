@@ -8,12 +8,14 @@
     .\scripts\prepare-sd.ps1 -Drive E:
 
   It does three plain file operations on that drive:
-    1. copies uboot\uboot_HG680P.bin as u-boot.ext (the old u-boot.ext is kept as u-boot.ext.orig)
+    1. copies uboot\u-boot.ext (646 KB raw U-Boot) as u-boot.ext (an existing one is kept as u-boot.ext.orig)
     2. copies dtb\b860h.dtb to the drive root (stock P212 dtb of the kernel + LED/power-button overlay)
     3. makes extlinux\extlinux.conf use it: every active FDT line is commented out and
        "FDT /b860h.dtb" is added
 
-  -SmallUboot  copy the smaller uboot\u-boot.ext (646 KB) instead of the HG680P image.
+  -Hg680pUboot copy the 4 MB uboot\uboot_HG680P.bin as u-boot.ext instead. Not the default: that file
+               starts with zeros and a box that has to `go` into it hangs in the bootloader.
+  -SmallUboot  accepted for compatibility; the small file is the default now.
   -StockDtb    make extlinux use the image's own stock dtb (/dtb/amlogic/meson-gxl-s905x-p212.dtb)
                instead of b860h.dtb: a diagnostic switch, no LEDs / power button. Run the script
                again without it to go back.
@@ -25,6 +27,7 @@
 param(
 	[string]$Drive,
 	[switch]$SmallUboot,
+	[switch]$Hg680pUboot,
 	[switch]$StockDtb
 )
 $ErrorActionPreference = 'Stop'
@@ -56,7 +59,11 @@ if ($root -match '^[A-Za-z]:$') { $root += '\' }
 $conf = Join-Path $root 'extlinux\extlinux.conf'
 if (-not (Test-Path $conf)) { throw "$conf not found: -Drive must be the BOOT (FAT) drive of a freshly flashed Armbian card." }
 
-$ubootSrc = if ($SmallUboot) { Join-Path $repo 'uboot\u-boot.ext' } else { Join-Path $repo 'uboot\uboot_HG680P.bin' }
+# The box's boot script runs `go 0x1000000` on u-boot.ext, so it must be a raw ARM64 U-Boot: the 646 KB
+# uboot\u-boot.ext. The 4 MB uboot_HG680P.bin is an eMMC-head image that starts with zeros; as
+# u-boot.ext it leaves the box hanging in the bootloader (tested), so it is opt-in only.
+$null = $SmallUboot   # kept so old command lines still work; the small file is the default
+$ubootSrc = if ($Hg680pUboot) { Join-Path $repo 'uboot\uboot_HG680P.bin' } else { Join-Path $repo 'uboot\u-boot.ext' }
 $dtbSrc = Join-Path $repo 'dtb\b860h.dtb'
 foreach ($p in $ubootSrc, $dtbSrc) { if (-not (Test-Path $p)) { throw "missing $p" } }
 
