@@ -43,6 +43,19 @@ for f in aml_autoscript s905_autoscript; do
 	fi
 done
 
+# emmc_autoscript runs `go 0x1000000` on u-boot.emmc, so it must be a raw ARM64 U-Boot (the 646 KB
+# file). install-aml.sh makes it by renaming the SD card's u-boot.ext; if that was the 4 MB HG680P
+# image (prepare-sd.bat default), the eMMC would not boot. Always install the right file.
+GOOD=$(dirname "$0")/../uboot/u-boot.ext
+if [ -f "$GOOD" ]; then
+	if ! cmp -s "$GOOD" "$MNT/u-boot.emmc"; then
+		echo "Replacing u-boot.emmc ($(stat -c %s "$MNT/u-boot.emmc" 2>/dev/null || echo missing) bytes) with uboot/u-boot.ext ($(stat -c %s "$GOOD") bytes)"
+		cp -f "$GOOD" "$MNT/u-boot.emmc"
+	fi
+else
+	echo "WARNING: $GOOD not found; u-boot.emmc left as the installer made it" >&2
+fi
+
 CONF=$MNT/extlinux/extlinux.conf
 if [ -f "$CONF" ]; then
 	sed -i "s#root=[^ ]*#root=UUID=$ROOT_UUID#" "$CONF"
