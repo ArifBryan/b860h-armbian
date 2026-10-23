@@ -27,7 +27,7 @@ Notes:
 - Stay on **`current`**, not `edge` (7.x): 6.18 is what this repo is tested with.
 - *Server* instead of *minimal* also works; *Xfce* is a waste on this box.
 - The download page has a `.sha` file next to each image: verify it.
-- The image ships `/root/install-aml.sh`, the stock eMMC installer used below.
+- `scripts/install-aml.sh` is a copy of the stock installer the image ships as `/root/install-aml.sh`, so this repo does not depend on the image release.
 - Build date and version change often; take the newest `Trixie_current_*` build.
 
 ## 1. Make the bootable SD card (Windows)
@@ -60,12 +60,12 @@ reset button inside the AV port with a toothpick, then power on.
 
 ## 2. Patch the SD system (LEDs, power button, upgrade guard)
 
-On the box, as root:
+On the box:
 
 ```bash
-apt update && apt install -y git
-git clone <this repo> b860h-armbian && cd b860h-armbian
-sudo ./scripts/install-b860h.sh
+sudo apt update && sudo apt install -y git
+git clone https://github.com/ArifBryan/b860h-armbian && cd b860h-armbian
+sudo bash b860h-setup.sh
 sudo reboot
 ```
 
@@ -74,24 +74,24 @@ button powers the box off. `grep ^FDT /boot/extlinux/extlinux.conf` should say `
 
 ## 3. Install to the eMMC
 
-Boot from the SD card, with the patch from step 2 installed, then:
+Boot from the SD card (step 2 done and rebooted, so you know the patch works), then one command:
 
 ```bash
 cd b860h-armbian
-
-# 1. Does the eMMC already hold the HG680P bootloader? (read-only check)
-sudo ./scripts/check-emmc-uboot.sh
-#    On MISMATCH, write it first (this replaces the eMMC bootloader; the SD card stays your fallback):
-#    sudo ./scripts/write-uboot.sh /dev/mmcblk1      # use the device the check script prints
-
-# 2. The stock installer: it ERASES the eMMC and copies the running SD system to it
-sudo /root/install-aml.sh
-
-# 3. Make the result bulletproof (root=UUID, no SD boot scripts, files present)
-sudo ./scripts/fix-emmc-boot.sh
+sudo bash b860h-setup.sh --emmc
 ```
 
-Wait for `OK: eMMC boot partition looks good`, then:
+It does, in order, and stops at the first problem (before erasing anything if it can):
+
+1. patches the SD system (skipped work is harmless, it is safe to repeat);
+2. checks that the eMMC holds the HG680P bootloader. On a mismatch it stops, and
+   `--flash-uboot` makes it write `uboot_HG680P.bin` to the eMMC itself;
+3. asks you to type `YES`, then runs `scripts/install-aml.sh` (a copy of the stock installer), which **erases the eMMC**
+   and copies the running SD system to it (`--yes` skips the question);
+4. verifies the eMMC boot partition and pins `root=` to its UUID (`scripts/fix-emmc-boot.sh`).
+
+The individual steps are still in `scripts/` if you want to run them by hand.
+Wait for `All done` / `OK: eMMC boot partition looks good`, then:
 
 ```bash
 sudo poweroff
@@ -137,11 +137,13 @@ To check an upgrade without rebooting: `ls /boot | grep autoscript` (only `emmc_
 ## Layout
 
 ```
+b860h-setup.sh   the one script to run: patch, or patch + install to eMMC (--emmc)
 uboot/       uboot_HG680P.bin (needed), uboot_B860H.bin (alternative), SHA256SUMS
 dts/         b860h-extras.dts   overlay: LEDs + power button
 scripts/     install-b860h.sh   patch a running system
              b860h-dtb-guard    apt hook: rebuild dtb, drop SD boot scripts on the eMMC
-             check-emmc-uboot.sh, fix-emmc-boot.sh   around the stock /root/install-aml.sh
+             install-aml.sh     copy of the stock eMMC installer (erases the eMMC)
+             check-emmc-uboot.sh, fix-emmc-boot.sh   run before / after it
              write-uboot.sh / write-uboot.ps1        put the bootloader on an SD card / disk
 legacy/      original dts/dtb, GPIO list, old powerStatus.sh
 ```

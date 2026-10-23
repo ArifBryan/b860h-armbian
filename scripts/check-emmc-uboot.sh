@@ -1,6 +1,6 @@
 #!/bin/bash
 # Read-only check: does the eMMC already hold the HG680P bootloader?
-# Run this on the SD system BEFORE the stock /root/install-aml.sh, which only backs up and
+# Run this on the SD system BEFORE scripts/install-aml.sh, which only backs up and
 # restores whatever bootloader is on the eMMC and never writes one itself.
 #
 #   sudo ./check-emmc-uboot.sh
@@ -30,7 +30,7 @@ echo "eMMC device : /dev/$EMMC"
 echo "expected    : $WANT"
 echo "found       : $HAVE"
 if [ "$WANT" = "$HAVE" ]; then
-	echo "OK: the eMMC has the HG680P bootloader. You can run /root/install-aml.sh."
+	echo "OK: the eMMC has the HG680P bootloader. You can run scripts/install-aml.sh."
 else
 	echo "MISMATCH: the eMMC does not hold uboot_HG680P.bin; Armbian would not boot from it."
 	echo "Fix: sudo $HERE/write-uboot.sh /dev/$EMMC"

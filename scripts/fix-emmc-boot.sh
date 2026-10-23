@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run on the SD system AFTER the stock /root/install-aml.sh and BEFORE you remove the SD card.
+# Run on the SD system AFTER scripts/install-aml.sh and BEFORE you remove the SD card.
 # It checks that the eMMC will boot, and pins root= to the eMMC's UUID (the stock installer
 # writes root=LABEL=ROOT_EMMC, which depends on label lookup in the initramfs).
 #

@@ -10,8 +10,16 @@
 set -euo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd)
-TARGET=${1:-}
-BIN=${2:-$HERE/../uboot/uboot_HG680P.bin}
+ASSUME_YES=0
+ARGS=()
+for a in "$@"; do
+	case "$a" in
+		-y|--yes) ASSUME_YES=1 ;;
+		*) ARGS+=("$a") ;;
+	esac
+done
+TARGET=${ARGS[0]:-}
+BIN=${ARGS[1]:-$HERE/../uboot/uboot_HG680P.bin}
 
 [ -n "$TARGET" ] || { sed -n '2,10p' "$0"; exit 1; }
 [ -f "$BIN" ] || { echo "missing $BIN" >&2; exit 1; }
@@ -27,8 +35,10 @@ if [ -b "$TARGET" ]; then
 	if [ "$SIZE" -gt $((256 * 1024 * 1024 * 1024)) ]; then
 		echo "That disk is larger than 256 GiB; it is probably not your SD card." >&2; exit 1
 	fi
-	read -r -p "Write the bootloader to $TARGET? Type YES: " ans
-	[ "$ans" = "YES" ] || { echo aborted; exit 1; }
+	if [ "$ASSUME_YES" -ne 1 ]; then
+		read -r -p "Write the bootloader to $TARGET? Type YES: " ans
+		[ "$ans" = "YES" ] || { echo aborted; exit 1; }
+	fi
 elif [ -f "$TARGET" ]; then
 	[ "$(stat -c %s "$TARGET")" -ge 4194304 ] || { echo "$TARGET is smaller than 4 MiB" >&2; exit 1; }
 else
